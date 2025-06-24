@@ -320,7 +320,7 @@ impl Signature for HexBytes {}
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct PrivateKey {
     bytes: Vec<u8>,
     kind: Algorithm,
@@ -341,6 +341,15 @@ impl PrivateKey {
             Secp256k1 => &alg::secp256k1::PrivateKeyEcDsaSecP256K1,
             Ed25519 => &alg::ed25519::PrivateKeyEd25519,
         }
+    }
+}
+
+impl fmt::Debug for PrivateKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("PrivateKey")
+            .field("hex", &self.to_string())
+            .field("algorithm", &self.kind)
+            .finish()
     }
 }
 
@@ -382,7 +391,7 @@ impl fmt::Display for PrivateKey {
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash)]
 pub struct PublicKey {
     bytes: Vec<u8>,
     kind: Algorithm,
@@ -419,6 +428,15 @@ impl PublicKey {
             Secp256k1 => &alg::secp256k1::PublicKeyEcDsaSecP256K1,
             Ed25519 => &alg::ed25519::PublicKeyEd25519,
         }
+    }
+}
+
+impl fmt::Debug for PublicKey {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("PublicKey")
+            .field("hex", &self.to_string())
+            .field("algorithm", &self.kind)
+            .finish()
     }
 }
 
