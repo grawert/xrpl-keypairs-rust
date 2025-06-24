@@ -1,10 +1,10 @@
 use std::str::FromStr;
 
 use ripple_keypairs::{
-    error::{DecodeError, InvalidSignature},
+    error::{DecodeError, InvalidKeyLength, InvalidSignature},
     Algorithm::{Ed25519, Secp256k1},
     Entropy::{Array, Random},
-    EntropyArray, HexBytes, Seed,
+    EntropyArray, HexBytes, PrivateKey, PublicKey, Seed,
 };
 
 use fixtures::*;
@@ -96,6 +96,31 @@ mod secp256k1 {
         assert_eq!(
             "sXXXghtJtpUorTwvof1NpDXAzNwf5".parse::<Seed>().unwrap_err(),
             DecodeError
+        );
+    }
+
+    #[test]
+    fn key_imports() {
+        let private_bytes = hex::decode(&TEST_SECP256K1.private_key[2..]).unwrap();
+        let private = PrivateKey::from_slice(private_bytes, Secp256k1).unwrap();
+        let public: PublicKey = TEST_SECP256K1.public_key.parse().unwrap();
+
+        assert!(public.to_string() == TEST_SECP256K1.public_key);
+        assert!(private.to_string() == TEST_SECP256K1.private_key);
+    }
+
+    #[test]
+    fn key_imports_wrong_keylength() {
+        let private_bytes = hex::decode(&TEST_SECP256K1.private_key[0..]).unwrap();
+
+        assert!(private_bytes.len() != 32);
+        assert_eq!(
+            PrivateKey::from_slice(private_bytes, Secp256k1).unwrap_err(),
+            InvalidKeyLength
+        );
+        assert_eq!(
+            PublicKey::from_str(&TEST_SECP256K1.public_key[2..]).unwrap_err(),
+            InvalidKeyLength
         );
     }
 
@@ -208,6 +233,31 @@ mod ed25519 {
                 .parse::<Seed>()
                 .unwrap_err(),
             DecodeError
+        );
+    }
+
+    #[test]
+    fn key_imports() {
+        let private_bytes = hex::decode(&TEST_ED25519.private_key[2..]).unwrap();
+        let private = PrivateKey::from_slice(private_bytes, Ed25519).unwrap();
+        let public: PublicKey = TEST_ED25519.public_key.parse().unwrap();
+
+        assert!(public.to_string() == TEST_ED25519.public_key);
+        assert!(private.to_string() == TEST_ED25519.private_key);
+    }
+
+    #[test]
+    fn key_imports_wrong_keylength() {
+        let private_bytes = hex::decode(&TEST_ED25519.private_key[0..]).unwrap();
+
+        assert!(private_bytes.len() != 32);
+        assert_eq!(
+            PrivateKey::from_slice(private_bytes, Ed25519).unwrap_err(),
+            InvalidKeyLength
+        );
+        assert_eq!(
+            PublicKey::from_str(&TEST_ED25519.public_key[2..]).unwrap_err(),
+            InvalidKeyLength
         );
     }
 

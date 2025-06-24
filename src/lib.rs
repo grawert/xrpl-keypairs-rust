@@ -67,7 +67,11 @@
 #![doc(test(attr(deny(warnings))))]
 #![doc(html_root_url = "https://docs.rs/ripple-keypairs/0.1.0")]
 
-use std::{convert::TryInto, fmt, str::FromStr};
+use std::{
+    convert::{TryFrom, TryInto},
+    fmt,
+    str::FromStr,
+};
 
 use ring::rand::{SecureRandom, SystemRandom};
 
@@ -342,6 +346,20 @@ impl PrivateKey {
             Ed25519 => &alg::ed25519::PrivateKeyEd25519,
         }
     }
+
+    /// Create a private key from raw bytes of specified kind
+    pub fn from_slice<S: AsRef<[u8]>>(bytes: S, kind: Algorithm) -> error::Result<Self> {
+        let bytes = bytes.as_ref();
+
+        if bytes.len() != 32 {
+            return Err(error::Error::InvalidKeyLength);
+        }
+
+        Ok(PrivateKey {
+            bytes: bytes.to_vec(),
+            kind,
+        })
+    }
 }
 
 impl fmt::Debug for PrivateKey {
@@ -429,6 +447,32 @@ impl PublicKey {
             Ed25519 => &alg::ed25519::PublicKeyEd25519,
         }
     }
+
+    /// Create a public key from encoded bytes with algorithm prefix
+    pub fn from_encoded_slice<S: AsRef<[u8]>>(bytes: S) -> error::Result<Self> {
+        let bytes = bytes.as_ref();
+
+        if bytes.len() != 33 {
+            return Err(error::Error::InvalidKeyLength);
+        }
+
+        let (algorithm, raw_bytes) = match bytes[0] {
+            0xED | 0x0 => {
+                // Ed25519: remove prefix byte, store 32 raw bytes
+                (Ed25519, bytes[1..].to_vec())
+            }
+            0x02 | 0x03 => {
+                // Secp256k1: store all 33 bytes (no prefix to remove)
+                (Secp256k1, bytes.to_vec())
+            }
+            _ => return Err(error::Error::DecodeError),
+        };
+
+        Ok(PublicKey {
+            bytes: raw_bytes,
+            kind: algorithm,
+        })
+    }
 }
 
 impl fmt::Debug for PublicKey {
@@ -449,5 +493,28 @@ impl fmt::Display for PublicKey {
             self.method()
                 .encode_to_hex(&self.method().as_bytes(&self.bytes))
         )
+    }
+}
+
+impl TryFrom<[u8; 33]> for PublicKey {
+    type Error = error::Error;
+    fn try_from(bytes: [u8; 33]) -> error::Result<Self> {
+        Self::from_encoded_slice(&bytes)
+    }
+}
+
+impl TryFrom<&[u8]> for PublicKey {
+    type Error = error::Error;
+    fn try_from(bytes: &[u8]) -> error::Result<Self> {
+        Self::from_encoded_slice(bytes)
+    }
+}
+
+impl FromStr for PublicKey {
+    type Err = error::Error;
+
+    fn from_str(s: &str) -> error::Result<Self> {
+        let bytes = hex::decode(s).map_err(|_| error::DecodeError)?;
+        Self::from_encoded_slice(&bytes)
     }
 }

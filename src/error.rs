@@ -16,6 +16,7 @@ pub enum Error {
     ExpectedMinEntorpyLenght(usize),
     DecodeError,
     InvalidSignature,
+    InvalidKeyLength,
     DeriveKeyPairError,
 }
 
@@ -31,6 +32,7 @@ impl fmt::Display for Error {
             ExpectedMinEntorpyLenght(n) => write!(f, "{} {}", "entropy lenght must be >=", n),
             DecodeError => f.write_str("decode error"),
             InvalidSignature => f.write_str("invalid signature"),
+            InvalidKeyLength => f.write_str("invalid key length"),
             DeriveKeyPairError => f.write_str("derive keypair error"),
         }
     }
