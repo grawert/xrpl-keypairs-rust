@@ -75,7 +75,7 @@ impl Seed for SeedEd25519 {
 
         let raw_pub = key_pair.public_key().as_ref().to_vec();
 
-        let kind = &Ed25519;
+        let kind = Ed25519;
 
         Ok((
             PrivateKey {

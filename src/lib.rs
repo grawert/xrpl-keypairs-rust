@@ -113,7 +113,7 @@ pub enum Entropy {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Seed {
     entropy: EntropyArray,
-    kind: &'static Algorithm,
+    kind: Algorithm,
 }
 
 impl Seed {
@@ -139,7 +139,7 @@ impl Seed {
     ///
     /// Panics only if something goes wrong with the random generator
     /// when using the [`Entropy::Random`] parameter.
-    pub fn new(entropy: Entropy, kind: &'static Algorithm) -> Self {
+    pub fn new(entropy: Entropy, kind: Algorithm) -> Self {
         let entropy = match entropy {
             Array(entropy) => entropy,
 
@@ -172,7 +172,7 @@ impl Seed {
     /// assert_ne!(Seed::random(), Seed::random());
     /// ```
     pub fn random() -> Self {
-        Self::new(Random, &Secp256k1)
+        Self::new(Random, Secp256k1)
     }
 
     /// Derive a public and private key from a seed
@@ -252,7 +252,7 @@ impl Seed {
     ///
     /// This method is used in [`AsRef`] trait.
     pub fn as_kind(&self) -> &Algorithm {
-        self.kind
+        &self.kind
     }
 
     fn method(&self) -> &'static dyn alg::Seed {
@@ -275,7 +275,7 @@ impl FromStr for Seed {
     fn from_str(s: &str) -> error::Result<Self> {
         let (entropy, kind) = codec::decode_seed(s).map_err(|_| error::DecodeError)?;
 
-        Ok(Self::new(Array(entropy), kind))
+        Ok(Self::new(Array(entropy), *kind))
     }
 }
 
@@ -323,7 +323,7 @@ impl Signature for HexBytes {}
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PrivateKey {
     bytes: Vec<u8>,
-    kind: &'static Algorithm,
+    kind: Algorithm,
 }
 
 impl PrivateKey {
@@ -385,7 +385,7 @@ impl fmt::Display for PrivateKey {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PublicKey {
     bytes: Vec<u8>,
-    kind: &'static Algorithm,
+    kind: Algorithm,
 }
 
 impl PublicKey {

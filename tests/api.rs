@@ -58,7 +58,7 @@ mod secp256k1 {
 
     #[test]
     fn new_seed() {
-        let seed = Seed::new(Array(TEST_SECP256K1.entropy), &Secp256k1);
+        let seed = Seed::new(Array(TEST_SECP256K1.entropy), Secp256k1);
 
         assert_eq!(TEST_SECP256K1.seed, seed.to_string());
     }
@@ -151,7 +151,7 @@ mod secp256k1 {
 
     #[test]
     fn random_address() {
-        let random_seed = Seed::new(Random, &Secp256k1);
+        let random_seed = Seed::new(Random, Secp256k1);
         let (_, public) = random_seed.derive_keypair().unwrap();
         let address = public.derive_address();
 
@@ -164,14 +164,14 @@ mod ed25519 {
 
     #[test]
     fn new_seed() {
-        let seed = Seed::new(Array(TEST_ED25519.entropy), &Ed25519);
+        let seed = Seed::new(Array(TEST_ED25519.entropy), Ed25519);
 
         assert_eq!(TEST_ED25519.seed, seed.to_string());
     }
 
     #[test]
     fn random_seed_starts_with_sed() {
-        let seed = Seed::new(Random, &Ed25519);
+        let seed = Seed::new(Random, Ed25519);
 
         assert!(seed.to_string().starts_with("sEd"));
     }
@@ -179,14 +179,14 @@ mod ed25519 {
     #[test]
     fn random_seed() {
         assert_ne!(
-            Seed::new(Random, &Ed25519).to_string(),
-            Seed::new(Random, &Ed25519).to_string()
+            Seed::new(Random, Ed25519).to_string(),
+            Seed::new(Random, Ed25519).to_string()
         );
     }
 
     #[test]
     fn parse_random_seed() {
-        let random_seed = Seed::new(Random, &Ed25519);
+        let random_seed = Seed::new(Random, Ed25519);
         let parsed_seed: Seed = random_seed.to_string().parse().unwrap();
 
         assert_eq!(parsed_seed.as_kind(), random_seed.as_kind());
@@ -263,7 +263,7 @@ mod ed25519 {
 
     #[test]
     fn random_address() {
-        let random_seed = Seed::new(Random, &Ed25519);
+        let random_seed = Seed::new(Random, Ed25519);
         let (_, public) = random_seed.derive_keypair().unwrap();
         let address = public.derive_address();
 

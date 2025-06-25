@@ -94,7 +94,7 @@ impl Seed for SeedEcDsaSecP256K1 {
         let public_key = SecPublicKey::from_secret_key(&private_key);
         let public_key_bytes = public_key.serialize_compressed();
 
-        let kind = &Secp256k1;
+        let kind = Secp256k1;
 
         Ok((
             PrivateKey {
