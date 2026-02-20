@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
 use ripple_keypairs::{
-    error::{DecodeError, InvalidKeyLength, InvalidSignature},
+    error::Error,
     Algorithm::{Ed25519, Secp256k1},
     Entropy::{Array, Random},
     EntropyArray, HexBytes, PrivateKey, PublicKey, Seed,
@@ -59,14 +59,12 @@ mod secp256k1 {
     #[test]
     fn new_seed() {
         let seed = Seed::new(Array(TEST_SECP256K1.entropy), Secp256k1);
-
         assert_eq!(TEST_SECP256K1.seed, seed.to_string());
     }
 
     #[test]
     fn random_seed_starts_with_s() {
         let seed = Seed::random();
-
         assert!(seed.to_string().starts_with("s") && !seed.to_string().starts_with("sEd"));
     }
 
@@ -79,14 +77,12 @@ mod secp256k1 {
     fn parse_random_seed() {
         let random_seed = Seed::random();
         let parsed_seed: Seed = random_seed.to_string().parse().unwrap();
-
         assert_eq!(parsed_seed, random_seed);
     }
 
     #[test]
     fn parse_seed() {
         let seed: Seed = TEST_SECP256K1.seed.parse().unwrap();
-
         assert_eq!(seed.as_kind(), &Secp256k1);
         assert_eq!(seed.as_entropy(), &TEST_SECP256K1.entropy);
     }
@@ -95,7 +91,7 @@ mod secp256k1 {
     fn bad_seed() {
         assert_eq!(
             "sXXXghtJtpUorTwvof1NpDXAzNwf5".parse::<Seed>().unwrap_err(),
-            DecodeError
+            Error::DecodeError
         );
     }
 
@@ -105,8 +101,8 @@ mod secp256k1 {
         let private = PrivateKey::from_slice(private_bytes, Secp256k1).unwrap();
         let public: PublicKey = TEST_SECP256K1.public_key.parse().unwrap();
 
-        assert!(public.to_string() == TEST_SECP256K1.public_key);
-        assert!(private.to_string() == TEST_SECP256K1.private_key);
+        assert_eq!(public.to_string(), TEST_SECP256K1.public_key);
+        assert_eq!(private.to_string(), TEST_SECP256K1.private_key);
     }
 
     #[test]
@@ -116,11 +112,11 @@ mod secp256k1 {
         assert!(private_bytes.len() != 32);
         assert_eq!(
             PrivateKey::from_slice(private_bytes, Secp256k1).unwrap_err(),
-            InvalidKeyLength
+            Error::InvalidKeyLength
         );
         assert_eq!(
             PublicKey::from_str(&TEST_SECP256K1.public_key[2..]).unwrap_err(),
-            InvalidKeyLength
+            Error::InvalidKeyLength
         );
     }
 
@@ -150,7 +146,6 @@ mod secp256k1 {
     fn verify() {
         let seed = secp256k1_test_seed();
         let (_, public) = seed.derive_keypair().unwrap();
-
         let sig = HexBytes::from_hex_unchecked(TEST_SECP256K1.signature);
 
         assert_eq!(public.verify(&TEST_SECP256K1.message, &sig), Ok(()));
@@ -163,14 +158,13 @@ mod secp256k1 {
 
         assert_eq!(
             public.verify(&TEST_SECP256K1.message, &"bad signature"),
-            Err(InvalidSignature)
+            Err(Error::InvalidSignature)
         );
     }
 
     #[test]
     fn derive_address() {
         let (_, public) = secp256k1_test_seed().derive_keypair().unwrap();
-
         assert_eq!(public.derive_address(), TEST_SECP256K1.address);
     }
 
@@ -190,14 +184,12 @@ mod ed25519 {
     #[test]
     fn new_seed() {
         let seed = Seed::new(Array(TEST_ED25519.entropy), Ed25519);
-
         assert_eq!(TEST_ED25519.seed, seed.to_string());
     }
 
     #[test]
     fn random_seed_starts_with_sed() {
         let seed = Seed::new(Random, Ed25519);
-
         assert!(seed.to_string().starts_with("sEd"));
     }
 
@@ -221,7 +213,6 @@ mod ed25519 {
     #[test]
     fn parse_seed() {
         let seed: Seed = TEST_ED25519.seed.parse().unwrap();
-
         assert_eq!(seed.as_kind(), &Ed25519);
         assert_eq!(seed.as_entropy(), &TEST_ED25519.entropy);
     }
@@ -232,7 +223,7 @@ mod ed25519 {
             "sEdXXXCy2JT7JaM7v95H9SxkhP9wS2r"
                 .parse::<Seed>()
                 .unwrap_err(),
-            DecodeError
+            Error::DecodeError
         );
     }
 
@@ -242,8 +233,8 @@ mod ed25519 {
         let private = PrivateKey::from_slice(private_bytes, Ed25519).unwrap();
         let public: PublicKey = TEST_ED25519.public_key.parse().unwrap();
 
-        assert!(public.to_string() == TEST_ED25519.public_key);
-        assert!(private.to_string() == TEST_ED25519.private_key);
+        assert_eq!(public.to_string(), TEST_ED25519.public_key);
+        assert_eq!(private.to_string(), TEST_ED25519.private_key);
     }
 
     #[test]
@@ -253,11 +244,11 @@ mod ed25519 {
         assert!(private_bytes.len() != 32);
         assert_eq!(
             PrivateKey::from_slice(private_bytes, Ed25519).unwrap_err(),
-            InvalidKeyLength
+            Error::InvalidKeyLength
         );
         assert_eq!(
             PublicKey::from_str(&TEST_ED25519.public_key[2..]).unwrap_err(),
-            InvalidKeyLength
+            Error::InvalidKeyLength
         );
     }
 
@@ -287,7 +278,6 @@ mod ed25519 {
     fn verify() {
         let seed = ed25519_test_seed();
         let (_, public) = seed.derive_keypair().unwrap();
-
         let sig = HexBytes::from_hex_unchecked(TEST_ED25519.signature);
 
         assert_eq!(public.verify(&TEST_ED25519.message, &sig), Ok(()));
@@ -300,14 +290,13 @@ mod ed25519 {
 
         assert_eq!(
             public.verify(&TEST_ED25519.message, &"bad signature"),
-            Err(InvalidSignature)
+            Err(Error::InvalidSignature)
         );
     }
 
     #[test]
     fn derive_address() {
         let (_, public) = ed25519_test_seed().derive_keypair().unwrap();
-
         assert_eq!(public.derive_address(), TEST_ED25519.address);
     }
 

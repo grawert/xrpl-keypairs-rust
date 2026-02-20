@@ -1,6 +1,6 @@
 [package]
 name = "xrpl-keypairs"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 authors = ["Uwe Grawert"]
 description = "Cryptographic key pairs for the XRP Ledger"
@@ -20,5 +20,6 @@ num-bigint = "0.4"
 libsecp256k1 = "0.7"
 ripemd = "0.1"
 sha2 = "0.10"
-ed25519-dalek = "2"
-getrandom = "0.2"
+zeroize = { version = "1.7", features = ["derive"] }
+getrandom = { version = "0.2", features = ["js"] }
+ed25519-dalek = { version = "2", features = ["zeroize"] }

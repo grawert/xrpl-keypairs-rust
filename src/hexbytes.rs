@@ -1,3 +1,5 @@
+//! Utility for handling bytes that can be represented as hex strings.
+
 use std::{fmt, str::FromStr};
 
 use hex::{decode, encode_upper};
@@ -6,7 +8,7 @@ use crate::error;
 
 /// The values of this type can be treated as bytes or as hex encoded strings
 ///
-/// Mostly used for crate's internal puprposes,
+/// Mostly used for crate's internal purposes,
 /// but can also be used as a hex encode/decode utility.
 ///
 /// # Examples
@@ -55,13 +57,15 @@ impl HexBytes {
     ///
     /// # Errors
     ///
-    /// [`error::DecodeError`] if a string is not hex encoded.
+    /// [`error::Error::DecodeError`] if a string is not hex encoded.
     pub fn from_hex(hex_string: &str) -> error::Result<Self> {
-        let bytes = decode(hex_string).map_err(|_| error::DecodeError)?;
+        let bytes = decode(hex_string).map_err(|_| error::Error::DecodeError)?;
 
         Ok(Self {
             bytes,
-            hex_string: hex_string.to_owned(),
+            // We normalize to uppercase to ensure equality checks match
+            // regardless of input casing.
+            hex_string: hex_string.to_uppercase(),
         })
     }
 

@@ -52,7 +52,7 @@
 //! let seed = Seed::from_str("sp5fghtJtpUorTwvof1NpDXAzNwf5")?;
 //!
 //! assert_eq!(seed, "sp5fghtJtpUorTwvof1NpDXAzNwf5".parse()?);
-//! assert_eq!(Err(error::DecodeError), "bad seed".parse::<Seed>());
+//! assert_eq!(Err(error::Error::DecodeError), "bad seed".parse::<Seed>());
 //! #
 //! # Ok(())
 //! # }
@@ -65,12 +65,11 @@
     missing_copy_implementations,
     missing_docs,
     rustdoc::missing_crate_level_docs,
-    rustdoc::missing_doc_code_examples,
     non_ascii_idents,
     unreachable_pub
 )]
 #![doc(test(attr(deny(warnings))))]
-#![doc(html_root_url = "https://docs.rs/ripple-keypairs/0.2.0")]
+#![doc(html_root_url = "https://docs.rs/xrpl-keypairs/0.2.0")]
 
 use std::{
     convert::{TryFrom, TryInto},
@@ -89,7 +88,8 @@ mod algorithm;
 use algorithm as alg;
 
 pub mod error;
-type KeyPairResult = error::Result<(PrivateKey, PublicKey)>;
+/// Result with error type
+pub type KeyPairResult = error::Result<(PrivateKey, PublicKey)>;
 
 pub use codec::{Algorithm, Entropy as EntropyArray};
 use ripple_address_codec as codec;
@@ -155,8 +155,7 @@ impl Seed {
             Random => {
                 let mut entropy: EntropyArray = [0; 16];
 
-                getrandom(&mut entropy)
-    .expect("unspecified random generator error");
+                getrandom(&mut entropy).expect("unspecified random generator error");
 
                 entropy
             }
@@ -205,7 +204,7 @@ impl Seed {
     ///
     /// # Errors
     ///
-    /// May return [`error::DeriveKeyPairError`] if the derived keypair
+    /// May return [`error::Error::DeriveKeyPairError`] if the derived keypair
     /// did not generate a verifiable signature
     pub fn derive_keypair(&self) -> KeyPairResult {
         let keypair = self.method().derive_keypair(self.as_entropy())?;
@@ -219,7 +218,7 @@ impl Seed {
 
             public_key
                 .verify(&test_message, &private_key.sign(&test_message))
-                .map_err(|_| error::DeriveKeyPairError)?;
+                .map_err(|_| error::Error::DeriveKeyPairError)?;
         }
 
         Ok(keypair)
@@ -281,7 +280,7 @@ impl FromStr for Seed {
     type Err = error::Error;
 
     fn from_str(s: &str) -> error::Result<Self> {
-        let (entropy, kind) = codec::decode_seed(s).map_err(|_| error::DecodeError)?;
+        let (entropy, kind) = codec::decode_seed(s).map_err(|_| error::Error::DecodeError)?;
 
         Ok(Self::new(Array(entropy), *kind))
     }
@@ -372,12 +371,12 @@ impl PrivateKey {
     ///
     /// # Errors
     ///
-    /// Returns [`error::InvalidKeyLength`] if bytes length is not 32.
+    /// Returns [`error::Error::InvalidKeyLength`] if bytes length is not 32.
     pub fn from_slice<S: AsRef<[u8]>>(bytes: S, kind: Algorithm) -> error::Result<Self> {
         let bytes = bytes.as_ref();
 
         if bytes.len() != 32 {
-            return Err(error::InvalidKeyLength);
+            return Err(error::Error::InvalidKeyLength);
         }
 
         Ok(PrivateKey {
@@ -429,7 +428,7 @@ impl fmt::Display for PrivateKey {
 /// let msg = "Test message";
 ///
 /// assert_eq!(public_key.verify(&msg, &private_key.sign(&msg)), Ok(()));
-/// assert_eq!(public_key.verify(&msg, &"bad signature"), Err(error::InvalidSignature));
+/// assert_eq!(public_key.verify(&msg, &"bad signature"), Err(error::Error::InvalidSignature));
 /// #
 /// # Ok(())
 /// # }
@@ -445,7 +444,7 @@ impl PublicKey {
     ///
     /// # Errors
     ///
-    /// Returns [`error::InvalidSignature`] if the signature is invalid.
+    /// Returns [`error::Error::InvalidSignature`] if the signature is invalid.
     pub fn verify(
         &self,
         message: &impl AsRef<[u8]>,
@@ -460,7 +459,8 @@ impl PublicKey {
 
     /// Derive an XRP Ledger classic address
     pub fn derive_address(&self) -> String {
-        let hex = HexBytes::from_hex_unchecked(&self.to_string());
+        let hex_str = self.to_string();
+        let hex = HexBytes::from_hex_unchecked(&hex_str);
         let hash: [u8; 20] = utils::hash160(hex.as_bytes())[..20].try_into().unwrap();
 
         codec::encode_account_id(&hash)
@@ -496,19 +496,19 @@ impl PublicKey {
     ///
     /// # Errors
     ///
-    /// Returns [`error::InvalidKeyLength`] if bytes length is not 33.
-    /// Returns [`error::DecodeError`] if the prefix byte is unrecognised.
+    /// Returns [`error::Error::InvalidKeyLength`] if bytes length is not 33.
+    /// Returns [`error::Error::DecodeError`] if the prefix byte is unrecognised.
     pub fn from_encoded_slice<S: AsRef<[u8]>>(bytes: S) -> error::Result<Self> {
         let bytes = bytes.as_ref();
 
         if bytes.len() != 33 {
-            return Err(error::InvalidKeyLength);
+            return Err(error::Error::InvalidKeyLength);
         }
 
         let (algorithm, raw_bytes) = match bytes[0] {
             0xED => (Ed25519, bytes[1..].to_vec()),
             0x02 | 0x03 => (Secp256k1, bytes.to_vec()),
-            _ => return Err(error::DecodeError),
+            _ => return Err(error::Error::DecodeError),
         };
 
         Ok(PublicKey {
@@ -557,7 +557,7 @@ impl FromStr for PublicKey {
     type Err = error::Error;
 
     fn from_str(s: &str) -> error::Result<Self> {
-        let bytes = hex::decode(s).map_err(|_| error::DecodeError)?;
+        let bytes = hex::decode(s).map_err(|_| error::Error::DecodeError)?;
         Self::from_encoded_slice(&bytes)
     }
 }
