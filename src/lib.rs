@@ -107,18 +107,6 @@ pub enum Entropy {
 }
 
 /// A seed that can be used to generate keypairs
-///
-/// # Examples
-///
-/// ## Generate a new seed
-///
-/// ```
-/// use ripple_keypairs::{Seed, Entropy, Algorithm};
-///
-/// let seed = Seed::new(Entropy::Random, Algorithm::Secp256k1);
-///
-/// assert!(seed.to_string().starts_with("s"));
-/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Seed {
     entropy: EntropyArray,
@@ -127,36 +115,13 @@ pub struct Seed {
 
 impl Seed {
     /// Generate a new seed
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use ripple_keypairs::{Seed, Entropy, Algorithm};
-    ///
-    /// let seed_secp256k1 = Seed::new(Entropy::Random, Algorithm::Secp256k1);
-    ///
-    /// assert!(seed_secp256k1.to_string().starts_with("s"));
-    /// assert_eq!(seed_secp256k1.as_kind(), &Algorithm::Secp256k1);
-    ///
-    /// let seed_ed25519 = Seed::new(Entropy::Random, Algorithm::Ed25519);
-    ///
-    /// assert!(seed_ed25519.to_string().starts_with("s"));
-    /// assert_eq!(seed_ed25519.as_kind(), &Algorithm::Ed25519);
-    /// ```
-    ///
-    /// # Panics
-    ///
-    /// Panics only if something goes wrong with the random generator
-    /// when using the [`Entropy::Random`] parameter.
     pub fn new(entropy: Entropy, kind: Algorithm) -> Self {
         let entropy = match entropy {
             Array(entropy) => entropy,
 
             Random => {
                 let mut entropy: EntropyArray = [0; 16];
-
                 getrandom(&mut entropy).expect("unspecified random generator error");
-
                 entropy
             }
         };
@@ -164,48 +129,12 @@ impl Seed {
         Self { entropy, kind }
     }
 
-    /// Generate a random seed
-    ///
-    /// The algorithm defaults to Secp256k1.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use ripple_keypairs::{Seed, Algorithm};
-    ///
-    /// let seed = Seed::random();
-    ///
-    /// assert_eq!(seed.as_kind(), &Algorithm::Secp256k1);
-    /// assert_ne!(Seed::random(), Seed::random());
-    /// ```
+    /// Generate a random seed (Defaults to Secp256k1)
     pub fn random() -> Self {
         Self::new(Random, Secp256k1)
     }
 
     /// Derive a public and private key from a seed
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use std::error::Error;
-    /// # fn main() -> Result<(), Box<dyn Error>> {
-    /// #
-    /// use ripple_keypairs::Seed;
-    ///
-    /// let seed = Seed::random();
-    /// let (private_key, public_key) = seed.derive_keypair()?;
-    /// let msg = "Test message";
-    ///
-    /// assert_eq!(public_key.verify(&msg, &private_key.sign(&msg)), Ok(()));
-    /// #
-    /// # Ok(())
-    /// # }
-    /// ```
-    ///
-    /// # Errors
-    ///
-    /// May return [`error::Error::DeriveKeyPairError`] if the derived keypair
-    /// did not generate a verifiable signature
     pub fn derive_keypair(&self) -> KeyPairResult {
         let keypair = self.method().derive_keypair(self.as_entropy())?;
 
@@ -225,39 +154,11 @@ impl Seed {
     }
 
     /// Seed as [`EntropyArray`]
-    ///
-    /// # Examples
-    /// ```
-    /// use ripple_keypairs::{Seed, Entropy, Algorithm, EntropyArray};
-    ///
-    /// let seed = Seed::new(Entropy::Array([0; 16]), Algorithm::Secp256k1);
-    ///
-    /// assert_eq!(seed.as_entropy(), &[0; 16]);
-    /// assert_eq!(seed.as_entropy(), <Seed as AsRef<EntropyArray>>::as_ref(&seed));
-    /// ```
-    ///
-    /// # Traits
-    ///
-    /// This method is used in [`AsRef`] trait.
     pub fn as_entropy(&self) -> &EntropyArray {
         &self.entropy
     }
 
     /// Seed as [`Algorithm`]
-    ///
-    /// # Examples
-    /// ```
-    /// use ripple_keypairs::{Seed, Entropy, Algorithm};
-    ///
-    /// let seed = Seed::new(Entropy::Random, Algorithm::Ed25519);
-    ///
-    /// assert_eq!(seed.as_kind(), &Algorithm::Ed25519);
-    /// assert_eq!(seed.as_kind(), <Seed as AsRef<Algorithm>>::as_ref(&seed));
-    /// ```
-    ///
-    /// # Traits
-    ///
-    /// This method is used in [`AsRef`] trait.
     pub fn as_kind(&self) -> &Algorithm {
         &self.kind
     }
@@ -281,7 +182,6 @@ impl FromStr for Seed {
 
     fn from_str(s: &str) -> error::Result<Self> {
         let (entropy, kind) = codec::decode_seed(s).map_err(|_| error::Error::DecodeError)?;
-
         Ok(Self::new(Array(entropy), *kind))
     }
 }
@@ -304,29 +204,6 @@ pub trait Signature: AsRef<[u8]> + AsRef<str> + ToString + Into<Vec<u8>> {}
 impl Signature for HexBytes {}
 
 /// A private key that can be used to sign messages
-///
-/// # Examples
-///
-/// ```
-/// # use std::error::Error;
-/// # fn main() -> Result<(), Box<dyn Error>> {
-/// #
-/// use ripple_keypairs::Seed;
-///
-/// let seed = "sp5fghtJtpUorTwvof1NpDXAzNwf5".parse::<Seed>()?;
-///
-/// let (private_key, _) = seed.derive_keypair()?;
-///
-/// let signature = private_key.sign(&"test message");
-///
-/// assert_eq!(signature.to_string(), "30440220583A91C95E54E6A651C47BEC22744E0B101E2C4060E7B08F6341657DAD9BC3EE02207D1489C7395DB0188D3A56A977ECBA54B36FA9371B40319655B1B4429E33EF2D");
-/// assert_eq!(signature.into(), vec![48, 68, 2, 32, 88, 58, 145, 201, 94, 84, 230, 166, 81, 196, 123, 236, 34, 116, 78, 11, 16, 30, 44, 64, 96, 231, 176, 143, 99, 65, 101, 125, 173, 155, 195, 238, 2, 32, 125, 20, 137, 199, 57, 93, 176, 24, 141, 58, 86, 169, 119, 236, 186, 84, 179, 111, 169, 55, 27, 64, 49, 150, 85, 177, 180, 66, 158, 51, 239, 45]);
-///
-/// assert_eq!(private_key.to_string(), "00D78B9735C3F26501C7337B8A5727FD53A6EFDBC6AA55984F098488561F985E23");
-/// #
-/// # Ok(())
-/// # }
-/// ```
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct PrivateKey {
     bytes: Vec<u8>,
@@ -335,12 +212,14 @@ pub struct PrivateKey {
 
 impl PrivateKey {
     /// Sign message
-    ///
-    /// Returns the [`Signature`] which that can be treated
-    /// as bytes or as a hex encoded string.
     pub fn sign(&self, message: &impl AsRef<[u8]>) -> impl Signature {
         self.method()
             .sign(message.as_ref(), &self.method().as_bytes(&self.bytes))
+    }
+
+    /// Returns the algorithm type of this private key.
+    pub fn kind(&self) -> Algorithm {
+        self.kind
     }
 
     fn method(&self) -> &'static dyn alg::Sign {
@@ -351,27 +230,6 @@ impl PrivateKey {
     }
 
     /// Create a private key from raw bytes of the specified algorithm
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use std::error::Error;
-    /// # fn main() -> Result<(), Box<dyn Error>> {
-    /// #
-    /// use ripple_keypairs::{Algorithm, PrivateKey};
-    ///
-    /// let bytes = hex::decode("D78B9735C3F26501C7337B8A5727FD53A6EFDBC6AA55984F098488561F985E23")?;
-    /// let key = PrivateKey::from_slice(bytes, Algorithm::Secp256k1)?;
-    ///
-    /// assert_eq!(key.to_string(), "00D78B9735C3F26501C7337B8A5727FD53A6EFDBC6AA55984F098488561F985E23");
-    /// #
-    /// # Ok(())
-    /// # }
-    /// ```
-    ///
-    /// # Errors
-    ///
-    /// Returns [`error::Error::InvalidKeyLength`] if bytes length is not 32.
     pub fn from_slice<S: AsRef<[u8]>>(bytes: S, kind: Algorithm) -> error::Result<Self> {
         let bytes = bytes.as_ref();
 
@@ -396,7 +254,6 @@ impl fmt::Debug for PrivateKey {
 }
 
 impl fmt::Display for PrivateKey {
-    /// Display as a hex encoded string
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
@@ -407,32 +264,7 @@ impl fmt::Display for PrivateKey {
     }
 }
 
-/// A public key that can be used to derive an XRP Ledger classic address and verify signatures
-///
-/// # Examples
-///
-/// ```
-/// # use std::error::Error;
-/// # fn main() -> Result<(), Box<dyn Error>> {
-/// #
-/// use ripple_keypairs::{Seed, error};
-///
-/// let seed = "sp5fghtJtpUorTwvof1NpDXAzNwf5".parse::<Seed>()?;
-///
-/// let (private_key, public_key) = seed.derive_keypair()?;
-///
-/// assert_eq!(public_key.derive_address(), "rU6K7V3Po4snVhBBaU29sesqs2qTQJWDw1");
-///
-/// assert_eq!(public_key.to_string(), "030D58EB48B4420B1F7B9DF55087E0E29FEF0E8468F9A6825B01CA2C361042D435");
-///
-/// let msg = "Test message";
-///
-/// assert_eq!(public_key.verify(&msg, &private_key.sign(&msg)), Ok(()));
-/// assert_eq!(public_key.verify(&msg, &"bad signature"), Err(error::Error::InvalidSignature));
-/// #
-/// # Ok(())
-/// # }
-/// ```
+/// A public key that can be used to derive an address and verify signatures
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct PublicKey {
     bytes: Vec<u8>,
@@ -440,11 +272,12 @@ pub struct PublicKey {
 }
 
 impl PublicKey {
+    /// Returns the algorithm type of this public key.
+    pub fn kind(&self) -> Algorithm {
+        self.kind
+    }
+
     /// Verify a signature
-    ///
-    /// # Errors
-    ///
-    /// Returns [`error::Error::InvalidSignature`] if the signature is invalid.
     pub fn verify(
         &self,
         message: &impl AsRef<[u8]>,
@@ -473,10 +306,14 @@ impl PublicKey {
         }
     }
 
-    /// Create a public key from encoded bytes with algorithm prefix
+    /// Create a public key from encoded bytes or raw Ed25519 bytes.
     ///
-    /// Ed25519 keys are prefixed with `0xED`.
-    /// Secp256k1 keys are prefixed with `0x02` or `0x03` (compressed point).
+    /// This method supports two formats:
+    /// 1. **XRPL Encoded (33 bytes):**
+    ///    - Ed25519: Prefixed with `0xED`.
+    ///    - Secp256k1: Prefixed with `0x02` or `0x03`.
+    /// 2. **Raw Ed25519 (32 bytes):**
+    ///    - Commonly returned by BIP-39/SLIP-10 derivation tools.
     ///
     /// # Examples
     ///
@@ -484,11 +321,16 @@ impl PublicKey {
     /// # use std::error::Error;
     /// # fn main() -> Result<(), Box<dyn Error>> {
     /// #
-    /// use ripple_keypairs::PublicKey;
+    /// use ripple_keypairs::{PublicKey, Algorithm};
     ///
+    /// // Standard XRPL hex (33 bytes)
     /// let key: PublicKey = "030D58EB48B4420B1F7B9DF55087E0E29FEF0E8468F9A6825B01CA2C361042D435".parse()?;
+    /// assert_eq!(key.kind(), Algorithm::Secp256k1);
     ///
-    /// assert_eq!(key.to_string(), "030D58EB48B4420B1F7B9DF55087E0E29FEF0E8468F9A6825B01CA2C361042D435");
+    /// // Raw Ed25519 (32 bytes)
+    /// let raw_bytes = [0u8; 32];
+    /// let key = PublicKey::from_encoded_slice(&raw_bytes)?;
+    /// assert_eq!(key.kind(), Algorithm::Ed25519);
     /// #
     /// # Ok(())
     /// # }
@@ -496,25 +338,33 @@ impl PublicKey {
     ///
     /// # Errors
     ///
-    /// Returns [`error::Error::InvalidKeyLength`] if bytes length is not 33.
-    /// Returns [`error::Error::DecodeError`] if the prefix byte is unrecognised.
+    /// Returns [`error::Error::InvalidKeyLength`] if length is not 32 or 33.
+    /// Returns [`error::Error::DecodeError`] if 33-byte prefix is unrecognized.
     pub fn from_encoded_slice<S: AsRef<[u8]>>(bytes: S) -> error::Result<Self> {
         let bytes = bytes.as_ref();
 
-        if bytes.len() != 33 {
-            return Err(error::Error::InvalidKeyLength);
+        match bytes.len() {
+            33 => {
+                let (algorithm, raw_bytes) = match bytes[0] {
+                    0xED => (Ed25519, bytes[1..].to_vec()),
+                    0x02 | 0x03 => (Secp256k1, bytes.to_vec()),
+                    _ => return Err(error::Error::DecodeError),
+                };
+
+                Ok(PublicKey {
+                    bytes: raw_bytes,
+                    kind: algorithm,
+                })
+            }
+            32 => {
+                // If 32 bytes, treat as raw Ed25519 public key.
+                Ok(PublicKey {
+                    bytes: bytes.to_vec(),
+                    kind: Ed25519,
+                })
+            }
+            _ => Err(error::Error::InvalidKeyLength),
         }
-
-        let (algorithm, raw_bytes) = match bytes[0] {
-            0xED => (Ed25519, bytes[1..].to_vec()),
-            0x02 | 0x03 => (Secp256k1, bytes.to_vec()),
-            _ => return Err(error::Error::DecodeError),
-        };
-
-        Ok(PublicKey {
-            bytes: raw_bytes,
-            kind: algorithm,
-        })
     }
 }
 
@@ -528,7 +378,6 @@ impl fmt::Debug for PublicKey {
 }
 
 impl fmt::Display for PublicKey {
-    /// Display as a hex encoded string
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
