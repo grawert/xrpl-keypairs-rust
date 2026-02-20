@@ -1,4 +1,6 @@
-use ring::signature::{self, KeyPair};
+use std::convert::TryFrom;
+
+use ed25519_dalek::{SecretKey, Signature, Signer, SigningKey, Verifier, VerifyingKey};
 
 use ripple_address_codec as codec;
 
@@ -14,15 +16,15 @@ pub(crate) struct PrivateKeyEd25519;
 
 impl Sign for PrivateKeyEd25519 {
     fn sign(&self, message: &[u8], private_key: &[u8]) -> HexBytes {
-        let key_pair = signature::Ed25519KeyPair::from_seed_unchecked(private_key).unwrap();
-
-        HexBytes::from_bytes(&key_pair.sign(message))
+        let secret = SecretKey::try_from(private_key)
+            .expect("private key bytes must be valid at this point");
+        HexBytes::from_bytes(&SigningKey::from_bytes(&secret).sign(message).to_vec())
     }
 }
 
 impl Key for PrivateKeyEd25519 {
-    fn key_lenght(&self) -> usize {
-        Self::LENGHT
+    fn key_length(&self) -> usize {
+        Self::LENGTH
     }
 
     fn prefix(&self) -> &[u8] {
@@ -31,7 +33,7 @@ impl Key for PrivateKeyEd25519 {
 }
 
 impl PrivateKeyEd25519 {
-    const LENGHT: usize = 32;
+    const LENGTH: usize = 32;
     const PREFIX: &'static [u8] = &[0xED];
 }
 
@@ -40,17 +42,15 @@ pub(crate) struct PublicKeyEd25519;
 
 impl Verify for PublicKeyEd25519 {
     fn verify(&self, message: &[u8], signature: &[u8], public_key: &[u8]) -> Result<()> {
-        let public_key = signature::UnparsedPublicKey::new(&signature::ED25519, public_key);
-
-        public_key
-            .verify(message, signature)
-            .map_err(|_| InvalidSignature)
+        let signature = Signature::try_from(signature).map_err(|_| InvalidSignature)?;
+        let verifying_key = VerifyingKey::try_from(public_key).map_err(|_| InvalidSignature)?;
+        verifying_key.verify(message, &signature).map_err(|_| InvalidSignature)
     }
 }
 
 impl Key for PublicKeyEd25519 {
-    fn key_lenght(&self) -> usize {
-        Self::LENGHT
+    fn key_length(&self) -> usize {
+        Self::LENGTH
     }
 
     fn prefix(&self) -> &[u8] {
@@ -59,7 +59,7 @@ impl Key for PublicKeyEd25519 {
 }
 
 impl PublicKeyEd25519 {
-    const LENGHT: usize = 32;
+    const LENGTH: usize = 32;
     const PREFIX: &'static [u8] = &[0xED];
 }
 
@@ -70,22 +70,15 @@ impl Seed for SeedEd25519 {
     fn derive_keypair(&self, entropy: &EntropyArray) -> KeyPairResult {
         let raw_priv = utils::sha512_digest_32(entropy);
 
-        let key_pair = signature::Ed25519KeyPair::from_seed_unchecked(&raw_priv)
+        let private_key = SigningKey::try_from(raw_priv.as_slice())
             .map_err(|_| DeriveKeyPairError)?;
-
-        let raw_pub = key_pair.public_key().as_ref().to_vec();
+        let raw_pub = private_key.verifying_key().as_bytes().to_vec();
 
         let kind = Ed25519;
 
         Ok((
-            PrivateKey {
-                bytes: raw_priv,
-                kind,
-            },
-            PublicKey {
-                bytes: raw_pub,
-                kind,
-            },
+            PrivateKey { bytes: raw_priv, kind },
+            PublicKey { bytes: raw_pub, kind },
         ))
     }
 

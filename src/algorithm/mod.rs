@@ -6,12 +6,12 @@ pub(super) mod ed25519;
 pub(super) mod secp256k1;
 
 pub(super) trait Key {
-    fn key_lenght(&self) -> usize;
+    fn key_length(&self) -> usize;
 
     fn prefix(&self) -> &[u8];
 
     fn as_bytes<'a>(&self, bytes: &'a [u8]) -> &'a [u8] {
-        &bytes[..self.key_lenght()]
+        &bytes[..self.key_length()]
     }
 
     fn encode_to_hex(&self, bytes: &[u8]) -> String {

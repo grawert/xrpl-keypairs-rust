@@ -1,5 +1,11 @@
 //! Cryptographic key pairs for the XRP Ledger
 //!
+//! This crate is a fork of [`ripple-keypairs`](https://crates.io/crates/ripple-keypairs)
+//! by [Stanislav Otovchits](https://github.com/otov4its), originally licensed under ISC.
+//!
+//! Original work Copyright (c) Stanislav Otovchits
+//! Modified work Copyright (c) Uwe Grawert
+//!
 //! An implementation of XRP Ledger keypairs & wallet generation
 //! which supports rfc6979 and eddsa deterministic signatures.
 //!
@@ -23,14 +29,13 @@
 //! # }
 //! ```
 //!
-//! ## Encode a seed in Base58 XRP Legder format
+//! ## Encode a seed in Base58 XRP Ledger format
 //!
 //! ```
 //! use ripple_keypairs::{Seed, Entropy, Algorithm};
 //!
-//! // In the real world you **must** generate random entropy
 //! let entropy = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
-//! let seed = Seed::new(Entropy::Array(entropy), &Algorithm::Secp256k1);
+//! let seed = Seed::new(Entropy::Array(entropy), Algorithm::Secp256k1);
 //!
 //! assert_eq!(seed.to_string(), "sp5fghtJtpUorTwvof1NpDXAzNwf5");
 //! ```
@@ -65,7 +70,7 @@
     unreachable_pub
 )]
 #![doc(test(attr(deny(warnings))))]
-#![doc(html_root_url = "https://docs.rs/ripple-keypairs/0.1.0")]
+#![doc(html_root_url = "https://docs.rs/ripple-keypairs/0.2.0")]
 
 use std::{
     convert::{TryFrom, TryInto},
@@ -73,7 +78,7 @@ use std::{
     str::FromStr,
 };
 
-use ring::rand::{SecureRandom, SystemRandom};
+use getrandom::getrandom;
 
 mod utils;
 
@@ -110,7 +115,7 @@ pub enum Entropy {
 /// ```
 /// use ripple_keypairs::{Seed, Entropy, Algorithm};
 ///
-/// let seed = Seed::new(Entropy::Random, &Algorithm::Secp256k1);
+/// let seed = Seed::new(Entropy::Random, Algorithm::Secp256k1);
 ///
 /// assert!(seed.to_string().starts_with("s"));
 /// ```
@@ -128,12 +133,12 @@ impl Seed {
     /// ```
     /// use ripple_keypairs::{Seed, Entropy, Algorithm};
     ///
-    /// let seed_secp256k1 = Seed::new(Entropy::Random, &Algorithm::Secp256k1);
+    /// let seed_secp256k1 = Seed::new(Entropy::Random, Algorithm::Secp256k1);
     ///
     /// assert!(seed_secp256k1.to_string().starts_with("s"));
     /// assert_eq!(seed_secp256k1.as_kind(), &Algorithm::Secp256k1);
     ///
-    /// let seed_ed25519 = Seed::new(Entropy::Random, &Algorithm::Ed25519);
+    /// let seed_ed25519 = Seed::new(Entropy::Random, Algorithm::Ed25519);
     ///
     /// assert!(seed_ed25519.to_string().starts_with("s"));
     /// assert_eq!(seed_ed25519.as_kind(), &Algorithm::Ed25519);
@@ -150,9 +155,8 @@ impl Seed {
             Random => {
                 let mut entropy: EntropyArray = [0; 16];
 
-                SystemRandom::new()
-                    .fill(&mut entropy)
-                    .expect("unspecified random geterator error");
+                getrandom(&mut entropy)
+    .expect("unspecified random generator error");
 
                 entropy
             }
@@ -227,7 +231,7 @@ impl Seed {
     /// ```
     /// use ripple_keypairs::{Seed, Entropy, Algorithm, EntropyArray};
     ///
-    /// let seed = Seed::new(Entropy::Array([0; 16]), &Algorithm::Secp256k1);
+    /// let seed = Seed::new(Entropy::Array([0; 16]), Algorithm::Secp256k1);
     ///
     /// assert_eq!(seed.as_entropy(), &[0; 16]);
     /// assert_eq!(seed.as_entropy(), <Seed as AsRef<EntropyArray>>::as_ref(&seed));
@@ -246,7 +250,7 @@ impl Seed {
     /// ```
     /// use ripple_keypairs::{Seed, Entropy, Algorithm};
     ///
-    /// let seed = Seed::new(Entropy::Random, &Algorithm::Ed25519);
+    /// let seed = Seed::new(Entropy::Random, Algorithm::Ed25519);
     ///
     /// assert_eq!(seed.as_kind(), &Algorithm::Ed25519);
     /// assert_eq!(seed.as_kind(), <Seed as AsRef<Algorithm>>::as_ref(&seed));
@@ -347,12 +351,33 @@ impl PrivateKey {
         }
     }
 
-    /// Create a private key from raw bytes of specified kind
+    /// Create a private key from raw bytes of the specified algorithm
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use std::error::Error;
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// #
+    /// use ripple_keypairs::{Algorithm, PrivateKey};
+    ///
+    /// let bytes = hex::decode("D78B9735C3F26501C7337B8A5727FD53A6EFDBC6AA55984F098488561F985E23")?;
+    /// let key = PrivateKey::from_slice(bytes, Algorithm::Secp256k1)?;
+    ///
+    /// assert_eq!(key.to_string(), "00D78B9735C3F26501C7337B8A5727FD53A6EFDBC6AA55984F098488561F985E23");
+    /// #
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`error::InvalidKeyLength`] if bytes length is not 32.
     pub fn from_slice<S: AsRef<[u8]>>(bytes: S, kind: Algorithm) -> error::Result<Self> {
         let bytes = bytes.as_ref();
 
         if bytes.len() != 32 {
-            return Err(error::Error::InvalidKeyLength);
+            return Err(error::InvalidKeyLength);
         }
 
         Ok(PrivateKey {
@@ -436,7 +461,7 @@ impl PublicKey {
     /// Derive an XRP Ledger classic address
     pub fn derive_address(&self) -> String {
         let hex = HexBytes::from_hex_unchecked(&self.to_string());
-        let hash: [u8; 20] = utils::hash160(&hex.as_bytes())[..20].try_into().unwrap();
+        let hash: [u8; 20] = utils::hash160(hex.as_bytes())[..20].try_into().unwrap();
 
         codec::encode_account_id(&hash)
     }
@@ -449,23 +474,41 @@ impl PublicKey {
     }
 
     /// Create a public key from encoded bytes with algorithm prefix
+    ///
+    /// Ed25519 keys are prefixed with `0xED`.
+    /// Secp256k1 keys are prefixed with `0x02` or `0x03` (compressed point).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use std::error::Error;
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// #
+    /// use ripple_keypairs::PublicKey;
+    ///
+    /// let key: PublicKey = "030D58EB48B4420B1F7B9DF55087E0E29FEF0E8468F9A6825B01CA2C361042D435".parse()?;
+    ///
+    /// assert_eq!(key.to_string(), "030D58EB48B4420B1F7B9DF55087E0E29FEF0E8468F9A6825B01CA2C361042D435");
+    /// #
+    /// # Ok(())
+    /// # }
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// Returns [`error::InvalidKeyLength`] if bytes length is not 33.
+    /// Returns [`error::DecodeError`] if the prefix byte is unrecognised.
     pub fn from_encoded_slice<S: AsRef<[u8]>>(bytes: S) -> error::Result<Self> {
         let bytes = bytes.as_ref();
 
         if bytes.len() != 33 {
-            return Err(error::Error::InvalidKeyLength);
+            return Err(error::InvalidKeyLength);
         }
 
         let (algorithm, raw_bytes) = match bytes[0] {
-            0xED | 0x0 => {
-                // Ed25519: remove prefix byte, store 32 raw bytes
-                (Ed25519, bytes[1..].to_vec())
-            }
-            0x02 | 0x03 => {
-                // Secp256k1: store all 33 bytes (no prefix to remove)
-                (Secp256k1, bytes.to_vec())
-            }
-            _ => return Err(error::Error::DecodeError),
+            0xED => (Ed25519, bytes[1..].to_vec()),
+            0x02 | 0x03 => (Secp256k1, bytes.to_vec()),
+            _ => return Err(error::DecodeError),
         };
 
         Ok(PublicKey {

@@ -1,6 +1,6 @@
 use std::convert::TryInto;
 
-use ring::digest;
+use sha2::{Digest, Sha512};
 
 use num_bigint::{BigInt, Sign as BigIntSign};
 
@@ -35,8 +35,8 @@ impl Sign for PrivateKeyEcDsaSecP256K1 {
 }
 
 impl Key for PrivateKeyEcDsaSecP256K1 {
-    fn key_lenght(&self) -> usize {
-        Self::LENGHT
+    fn key_length(&self) -> usize {
+        Self::LENGTH
     }
 
     fn prefix(&self) -> &[u8] {
@@ -45,7 +45,7 @@ impl Key for PrivateKeyEcDsaSecP256K1 {
 }
 
 impl PrivateKeyEcDsaSecP256K1 {
-    const LENGHT: usize = 32;
+    const LENGTH: usize = 32;
     const PREFIX: &'static [u8] = &[0x00];
 }
 
@@ -56,7 +56,7 @@ impl Verify for PublicKeyEcDsaSecP256K1 {
     fn verify(&self, message: &[u8], signature: &[u8], public_key: &[u8]) -> Result<()> {
         let message = &prepare_message(message);
         let signature = &SecSignature::parse_der(signature)?;
-        let mut compressed = [0; Self::LENGHT];
+        let mut compressed = [0; Self::LENGTH];
         compressed.copy_from_slice(public_key);
         let pubkey = &SecPublicKey::parse_compressed(&compressed).unwrap();
 
@@ -68,8 +68,8 @@ impl Verify for PublicKeyEcDsaSecP256K1 {
 }
 
 impl Key for PublicKeyEcDsaSecP256K1 {
-    fn key_lenght(&self) -> usize {
-        Self::LENGHT
+    fn key_length(&self) -> usize {
+        Self::LENGTH
     }
 
     fn prefix(&self) -> &[u8] {
@@ -78,7 +78,7 @@ impl Key for PublicKeyEcDsaSecP256K1 {
 }
 
 impl PublicKeyEcDsaSecP256K1 {
-    const LENGHT: usize = 33;
+    const LENGTH: usize = 33;
     const PREFIX: &'static [u8] = &[];
 }
 
@@ -97,14 +97,8 @@ impl Seed for SeedEcDsaSecP256K1 {
         let kind = Secp256k1;
 
         Ok((
-            PrivateKey {
-                bytes: private_key_bytes.into(),
-                kind,
-            },
-            PublicKey {
-                bytes: public_key_bytes.into(),
-                kind,
-            },
+            PrivateKey { bytes: private_key_bytes.into(), kind },
+            PublicKey { bytes: public_key_bytes.into(), kind },
         ))
     }
 
@@ -113,22 +107,19 @@ impl Seed for SeedEcDsaSecP256K1 {
     }
 }
 
-type PrivateKeyBytes = [u8; PrivateKeyEcDsaSecP256K1::LENGHT];
+type PrivateKeyBytes = [u8; PrivateKeyEcDsaSecP256K1::LENGTH];
 
 impl SeedEcDsaSecP256K1 {
-    // There is no pub const for order `n` in dependency `libsecp256k1`,
-    // so define it here
     fn order_n() -> BigInt {
         let n = b"FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141";
-
         BigInt::parse_bytes(n, 16).unwrap()
     }
 
     fn derive_scalar(bytes: &[u8], discrim: Option<u32>) -> BigInt {
         let order = Self::order_n();
 
-        for i in 0..=0xffffffff as u32 {
-            let mut hasher = digest::Context::new(&digest::SHA512);
+        for i in 0..=0xffffffffu32 {
+            let mut hasher = Sha512::new();
 
             hasher.update(bytes);
 
@@ -140,7 +131,7 @@ impl SeedEcDsaSecP256K1 {
 
             let key = BigInt::from_bytes_be(
                 BigIntSign::Plus,
-                &hasher.finish().as_ref()[..PrivateKeyEcDsaSecP256K1::LENGHT],
+                &hasher.finalize()[..PrivateKeyEcDsaSecP256K1::LENGTH],
             );
 
             if key > 0.into() && key < order {
@@ -148,7 +139,6 @@ impl SeedEcDsaSecP256K1 {
             }
         }
 
-        // This line is practically impossible to reach
         unreachable!();
     }
 
@@ -179,7 +169,6 @@ impl SeedEcDsaSecP256K1 {
 
 fn prepare_message(message: &[u8]) -> Message {
     let message_hash = utils::sha512_digest_32(message);
-
     Message::parse_slice(&message_hash).unwrap()
 }
 
@@ -194,8 +183,8 @@ mod tests {
         assert_eq!(
             SeedEcDsaSecP256K1::big_int_to_private_key_bytes(&big_int),
             [
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 1
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 1
             ]
         );
     }
